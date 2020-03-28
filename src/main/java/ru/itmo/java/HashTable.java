@@ -1,29 +1,19 @@
 package ru.itmo.java;
 
+import java.util.Optional;
+
 public class HashTable {
 
     private final static int INITIAL_CAPACITY = 1024;
     private final static int RESIZE_FACTOR = 2;
     private final static float INITIAL_LOAD_FACTOR = 0.5f;
 
-
-    private Entry[] HashArray;
-    private boolean[] DeletedHashArray;
+    private Entry[] hashArray;
+    private boolean[] deletedHashArray;
     private int size = 0;
     private int capacity;
     private float loadFactor;
     private int threshold;
-
-    private static class Entry {
-        private Object key;
-        private Object value;
-
-        public Entry(Object key, Object value) {
-            this.key = key;
-            this.value = value;
-        }
-
-    }
 
     public HashTable() {
         this(INITIAL_CAPACITY, INITIAL_LOAD_FACTOR);
@@ -34,46 +24,41 @@ public class HashTable {
     }
 
     public HashTable(int capacity, float loadFactor) {
-
-        this.HashArray = new Entry[capacity];
-        this.DeletedHashArray = new boolean[capacity];
+        this.hashArray = new Entry[capacity];
+        this.deletedHashArray = new boolean[capacity];
         this.capacity = capacity;
         this.loadFactor = loadFactor;
-        this.threshold = (int) Math.floor(capacity * loadFactor);
+        this.threshold = (int) (capacity * loadFactor);
     }
 
-    private void reSize() {
-        if (this.size >= this.threshold) {
-            this.capacity *= RESIZE_FACTOR;
-            this.threshold = (int) (this.capacity * this.loadFactor);
+    private void resize() {
+        if (size >= threshold) {
+            capacity *= RESIZE_FACTOR;
+            threshold = (int) (capacity * loadFactor);
 
-            Entry[] previousHashArray = this.HashArray;
-            this.HashArray = new Entry[this.capacity];
-            this.DeletedHashArray = new boolean[this.capacity];
-            this.size = 0;
+            Entry[] previousHashArray = hashArray;
+            hashArray = new Entry[capacity];
+            deletedHashArray = new boolean[capacity];
+            size = 0;
             for (Entry pair : previousHashArray) {
                 if (pair != null) {
-                    this.put(pair.key, pair.value);
+                    put(pair.key, pair.value);
                 }
             }
         }
     }
 
-    private int getHash(Object key) {
-        return Math.abs(key.hashCode() % this.capacity);
-    }
-
     private int hash(Object key) {
-        int hash = this.getHash(key);
+        int hash = Math.abs(key.hashCode() % capacity);
         int cycleCount = 0;
-        while (DeletedHashArray[hash]
-                || (this.HashArray[hash] != null
-                && !this.HashArray[hash].key.equals(key))
+        while (deletedHashArray[hash]
+                || (hashArray[hash] != null
+                && !hashArray[hash].key.equals(key))
         ) {
             hash++;
-            hash %= this.capacity;
-            if (cycleCount++ >= size){
-                reSize();
+            hash %= capacity;
+            if (cycleCount++ >= size) {
+                resize();
             }
         }
         return hash;
@@ -81,56 +66,73 @@ public class HashTable {
 
     public Object put(Object key, Object value) {
 
-        int hash = this.hash(key);
+        int hash = hash(key);
 
-        if (this.HashArray[hash] == null) {
+        if (hashArray[hash] == null) {
 
-            hash = this.getHash(key);
-            while (this.HashArray[hash] != null) {
+            hash = Math.abs(key.hashCode() % capacity);
+            while (hashArray[hash] != null) {
                 hash++;
-                hash %= this.capacity;
+                hash %= capacity;
             }
 
-            DeletedHashArray[hash] = false;
+            deletedHashArray[hash] = false;
+            hashArray[hash] = new Entry(key, value);
+            size++;
 
-            this.HashArray[hash] = new Entry(key, value);
-            this.size++;
-
-            if (this.size >= this.threshold) {
-                this.reSize();
+            if (size >= threshold) {
+                resize();
             }
 
             return null;
         }
-        Object oldValue = this.HashArray[hash].value;
-        this.HashArray[hash] = new Entry(key, value);
+        Object oldValue = hashArray[hash].value;
+        hashArray[hash] = new Entry(key, value);
         return oldValue;
     }
 
     public Object get(Object key) {
-        if (this.HashArray[this.hash(key)] == null) {
-            return null;
-        } else {
-            return this.HashArray[this.hash(key)].value;
-        }
+        return Optional.ofNullable(hashArray[hash(key)]).map(Entry::getValue).orElse(null);
     }
 
     public Object remove(Object key) {
-        int hash = this.hash(key);
+        int hash = hash(key);
 
-        if (this.HashArray[hash] == null) {
+        if (hashArray[hash] == null) {
             return null;
         }
 
-        this.DeletedHashArray[hash] = true;
-        Object oldValue = this.HashArray[hash].value;
-        this.size--;
-        this.HashArray[hash] = null;
+        deletedHashArray[hash] = true;
+        Object oldValue = hashArray[hash].value;
+        size--;
+        hashArray[hash] = null;
         return oldValue;
     }
 
     public int size() {
-        return this.size;
+        return size;
+    }
+
+    private static class Entry {
+        private final Object key;
+        private Object value;
+
+        public Entry(Object key, Object value) {
+            this.key = key;
+            setValue(value);
+        }
+
+        public Object getKey() {
+            return key;
+        }
+
+        public Object getValue() {
+            return value;
+        }
+
+        public void setValue(Object value) {
+            this.value = value;
+        }
     }
 
 }
